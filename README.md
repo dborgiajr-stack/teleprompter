@@ -2,6 +2,16 @@
 
 A teleprompter app for iPhone, iPad, Android and the web, built with [Expo](https://expo.dev) and React Native. Write your scripts, then read them while the app records you on camera.
 
+## Use it now (no install)
+
+Open **https://dborgiajr-stack.github.io/teleprompter/** on your phone.
+
+To keep it on your home screen like a regular app:
+- **iPhone/iPad (Safari):** tap the Share button, then **Add to Home Screen**
+- **Android (Chrome):** tap the ⋮ menu, then **Add to Home screen** or **Install app**
+
+Scripts are saved on your device only. When you stop a recording, your phone's share sheet opens; choose **Save Video** to put it in Photos. On a computer, the video downloads instead.
+
 ## Features
 
 - **Script library**: create, edit and delete scripts, saved on the device
@@ -33,6 +43,11 @@ Then scan the QR code with the **Expo Go** app on your phone, or press `i` (iOS 
 | `npm run android`   | Open in the Android emulator          |
 | `npm run web`       | Open in a web browser                 |
 | `npm run typecheck` | Type-check the project with TypeScript |
+| `npm run build:web` | Build the web version into `dist/`     |
+
+## How the web version is published
+
+Every push to `main` runs [`.github/workflows/deploy-web.yml`](.github/workflows/deploy-web.yml), which builds the web version and publishes it to GitHub Pages. You don't need to do anything besides `git push`.
 
 ## Building for the App Store / Play Store
 
@@ -47,10 +62,13 @@ eas build --platform ios
 
 ```
 app/          Screens (Expo Router): index (script list), edit, play
-components/   Shared UI and error handling
+components/   Shared UI, error handling, and the browser camera (WebCamera.web.tsx)
 contexts/     ScriptsContext: script storage via AsyncStorage
 constants/    Theme colors
 hooks/        useColors
+utils/        Dialog helpers that also work in the browser
+public/       Web app manifest and home-screen icons
+scripts/      Post-build step for the web version
 assets/       App icon
 ```
 

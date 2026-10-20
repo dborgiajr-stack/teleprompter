@@ -6,7 +6,6 @@ import * as MediaLibrary from "expo-media-library";
 import * as ScreenOrientation from "expo-screen-orientation";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Alert,
   Animated,
   Platform,
   ScrollView,
@@ -37,8 +36,10 @@ const BITRATE_OPTIONS: Array<{ label: string; sub: string; value: number }> = [
 ];
 import { useSafeAreaInsets } from "react-native-safe-area-context"; // eslint-disable-line import/order
 
+import { WebCamera, type WebCameraHandle } from "@/components/WebCamera";
 import { useScripts } from "@/contexts/ScriptsContext";
 import { useColors } from "@/hooks/useColors";
+import { notify } from "@/utils/dialogs";
 // ───────────────────────────────────────────────────────────────────────────
 
 const FONT_SIZES = [20, 28, 38, 52, 68] as const;
@@ -118,6 +119,7 @@ export default function PlayScreen() {
   const controlsOpacity = useRef(new Animated.Value(1)).current;
   const recordPulse = useRef(new Animated.Value(1)).current;
   const cameraRef = useRef<CameraView>(null);
+  const webCameraRef = useRef<WebCameraHandle>(null);
   // Word-line map: each entry covers a visual line and its word range
   const wordLinesRef = useRef<WordLine[]>([]);
   const textContainerYRef = useRef(0);
@@ -303,27 +305,43 @@ export default function PlayScreen() {
 
   const handleToggleCamera = useCallback(async () => {
     if (!cameraMode) {
-      if (!cameraPermission?.granted) {
+      if (Platform.OS !== "web" && !cameraPermission?.granted) {
         const result = await requestCameraPermission();
         if (!result.granted) {
-          Alert.alert("Camera permission needed", "Allow camera access in Settings to use this feature.");
+          notify("Camera permission needed", "Allow camera access in Settings to use this feature.");
           return;
         }
       }
     } else {
-      if (isRecordingRef.current) cameraRef.current?.stopRecording();
+      if (isRecordingRef.current) {
+        cameraRef.current?.stopRecording();
+        webCameraRef.current?.stopRecording();
+      }
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCameraMode((prev) => !prev);
   }, [cameraMode, cameraPermission, requestCameraPermission]);
 
   const handleRecord = useCallback(async () => {
+    if (Platform.OS === "web") {
+      if (!webCameraRef.current) return;
+      if (isRecordingRef.current) { webCameraRef.current.stopRecording(); return; }
+      setIsRecording(true);
+      try {
+        await webCameraRef.current.recordAsync();
+      } catch (e) {
+        notify("Recording failed", (e as Error).message);
+      } finally {
+        setIsRecording(false);
+      }
+      return;
+    }
     if (!cameraRef.current) return;
     if (isRecordingRef.current) { cameraRef.current.stopRecording(); return; }
     if (!mediaPermission?.granted) {
       const result = await requestMediaPermission();
       if (!result.granted) {
-        Alert.alert("Permission needed", "Allow access to your photo library to save recordings.");
+        notify("Permission needed", "Allow access to your photo library to save recordings.");
         return;
       }
     }
@@ -333,7 +351,7 @@ export default function PlayScreen() {
       const video = await cameraRef.current.recordAsync({ maxDuration: 7200 });
       if (video?.uri) {
         await MediaLibrary.saveToLibraryAsync(video.uri);
-        Alert.alert("Saved", "Your recording has been saved to the camera roll.");
+        notify("Saved", "Your recording has been saved to the camera roll.");
       }
     } catch { /* stopped or cancelled */ } finally {
       setIsRecording(false);
@@ -345,13 +363,21 @@ export default function PlayScreen() {
       stopInterval();
       if (controlsTimerRef.current) clearTimeout(controlsTimerRef.current);
       if (resumeTimerRef.current) clearTimeout(resumeTimerRef.current);
-      if (isRecordingRef.current) cameraRef.current?.stopRecording();
+      if (isRecordingRef.current) {
+        cameraRef.current?.stopRecording();
+        webCameraRef.current?.stopRecording();
+      }
       // Always restore portrait when leaving the teleprompter screen
       if (Platform.OS !== "web") {
         ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
       }
     };
   }, [stopInterval]);
+
+  const handleWebCameraError = useCallback((message: string) => {
+    setCameraMode(false);
+    notify("Camera unavailable", message);
+  }, []);
 
   const { width: screenWidth } = useWindowDimensions();
   const isTablet = screenWidth >= 768;
@@ -383,6 +409,15 @@ export default function PlayScreen() {
           mode="video"
           videoQuality={videoQuality}
           videoBitrate={videoBitrate}
+        />
+      )}
+      {cameraMode && Platform.OS === "web" && (
+        <WebCamera
+          ref={webCameraRef}
+          facing={facing}
+          videoQuality={videoQuality}
+          videoBitrate={videoBitrate}
+          onError={handleWebCameraError}
         />
       )}
       {cameraMode && <View style={styles.cameraOverlay} pointerEvents="none" />}
@@ -725,7 +760,7 @@ export default function PlayScreen() {
               </TouchableOpacity>
             )}
 
-            {cameraMode && Platform.OS !== "web" && (
+            {cameraMode && (
               <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -737,7 +772,7 @@ export default function PlayScreen() {
               </TouchableOpacity>
             )}
 
-            {cameraMode && Platform.OS !== "web" && (
+            {cameraMode && (
               <TouchableOpacity
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -811,7 +846,7 @@ export default function PlayScreen() {
               />
             </TouchableOpacity>
 
-            {cameraMode && Platform.OS !== "web" ? (
+            {cameraMode ? (
               <TouchableOpacity onPress={handleRecord} style={styles.sideCtrl} hitSlop={8}>
                 <View style={[styles.recordBtn, { borderColor: isRecording ? "#E84040" : "rgba(255,255,255,0.4)" }]}>
                   <Animated.View

@@ -19,7 +19,11 @@
     },
     "android": {},
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/icon.png",
+      "name": "Teleprompter",
+      "shortName": "Teleprompter",
+      "themeColor": "#0A0A0A",
+      "backgroundColor": "#0A0A0A"
     },
     "plugins": [
       "expo-router",
@@ -44,7 +48,8 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "baseUrl": "/teleprompter"
     }
   }
 }

@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Alert,
   FlatList,
   Platform,
   Pressable,
@@ -17,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useScripts, type Script } from "@/contexts/ScriptsContext";
 import { useColors } from "@/hooks/useColors";
+import { confirmDestructive } from "@/utils/dialogs";
 
 function timeAgo(ts: number): string {
   const diff = Date.now() - ts;
@@ -49,14 +49,9 @@ function ScriptCard({ script }: { script: Script }) {
 
   function handleDelete() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    Alert.alert("Delete Script", `Delete "${script.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => deleteScript(script.id),
-      },
-    ]);
+    confirmDestructive("Delete Script", `Delete "${script.title}"?`, "Delete", () =>
+      deleteScript(script.id)
+    );
   }
 
   const preview = script.content.trim().replace(/\s+/g, " ").slice(0, 90);

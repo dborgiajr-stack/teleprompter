@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -18,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useScripts } from "@/contexts/ScriptsContext";
 import { useColors } from "@/hooks/useColors";
+import { confirmDestructive, notify } from "@/utils/dialogs";
 
 function readingTime(wordCount: number): string {
   if (wordCount === 0) return "";
@@ -65,7 +65,7 @@ export default function EditScreen() {
 
   async function handleSave() {
     if (!content.trim()) {
-      Alert.alert("Empty Script", "Please write some content before saving.");
+      notify("Empty Script", "Please write some content before saving.");
       return;
     }
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -80,17 +80,10 @@ export default function EditScreen() {
   function handleDelete() {
     if (!existing) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert("Delete Script", `Delete "${existing.title}"?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          await deleteScript(existing.id);
-          router.back();
-        },
-      },
-    ]);
+    confirmDestructive("Delete Script", `Delete "${existing.title}"?`, "Delete", async () => {
+      await deleteScript(existing.id);
+      router.back();
+    });
   }
 
   // Push current content to undo stack (debounced — called on every keystroke)
@@ -193,14 +186,10 @@ export default function EditScreen() {
 
   function handleClear() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    Alert.alert("Clear Script", "Remove all content?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Clear",
-        style: "destructive",
-        onPress: () => { pushUndo(); setContent(""); },
-      },
-    ]);
+    confirmDestructive("Clear Script", "Remove all content?", "Clear", () => {
+      pushUndo();
+      setContent("");
+    });
   }
 
   const canUndo = undoStackRef.current.length > 0;
